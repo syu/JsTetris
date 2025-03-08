@@ -1,4 +1,5 @@
-console.log("Hi Me");
+// TODO: increase speed
+// TODO: better paint
 
 // ?import { Point } from './Point.js';
 class Point
@@ -92,8 +93,14 @@ const Shapes = [new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), n
                            [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(-1, 1)],
                            [new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(-1, -1)],
                            [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, -1)]], "red"),
+                new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(-1, 1)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(-1, -1)],
+                           [new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(1, -1)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, 1)]], "teal"),
                 new Shape([[new Point(-1,0), new Point(0, 0), new Point(0, 1), new Point(1, 1)],
-                           [new Point(1,0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]], "yellow")];
+                           [new Point(1,0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]], "yellow"),
+                new Shape([[new Point(-1,1), new Point(0, 0), new Point(0, 1), new Point(1, 0)],
+                           [new Point(0,0), new Point(0, 1), new Point(1, 1), new Point(1, 2)]], "orange")];
 const BoardSize = new Point( 10, 20 );
 var Scale = 10;
 const EmptyColor = "white";
@@ -284,7 +291,7 @@ function main()
             if(game.ended)
             {
                 window.clearInterval(interval);
-                document.querySelector('h1').textContent = 'The End.<br>Score: ' + game.board.score.toString();
+                document.querySelector('h1').textContent = 'Finished: ' + game.board.score.toString();
             }
             else
             {
