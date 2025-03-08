@@ -135,6 +135,7 @@ class Board
         this.data = Array(size.y);
         for (let y = 0; y < this.size.y; ++y)
             this.data[y] = Array(size.x).fill(EmptyColor);
+        this.score = 0;
     }
 
     getData(point)
@@ -180,6 +181,13 @@ class Board
         return false;
     }
 
+    isFull(line)
+    {
+        for (let color of line)
+           if(color == EmptyColor)
+               return false;
+        return true;
+    }
     apply(shape)
     {
         for (let point of shape.data())
@@ -187,6 +195,15 @@ class Board
             if(!this.isOnBoard(point))
                 continue;
             this.setData(point, shape.color);
+        }
+        for (let y = this.size.y-1; y >=0; --y)
+        {
+            if (!this.isFull(this.data[y]))
+                continue;
+            this.data.splice(y, 1);
+            this.data.unshift(Array(this.size.x).fill(EmptyColor));
+            this.score++;
+            y++;
         }
     }
 }
@@ -267,7 +284,11 @@ function main()
             if(game.ended)
             {
                 window.clearInterval(interval);
-                document.querySelector('h1').textContent = 'The End';
+                document.querySelector('h1').textContent = 'The End.<br>Score: ' + game.board.score.toString();
+            }
+            else
+            {
+                document.querySelector('h1').textContent = 'Score: ' + game.board.score.toString();
             }
         }, 1000);
 
