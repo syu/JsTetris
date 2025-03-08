@@ -2,6 +2,15 @@
 // TODO: better paint
 
 // ?import { Point } from './Point.js';
+
+const ColorsDefault = ["DarkOrange", "Firebrick", "Indigo", "Navy", "DarkGreen", "DarkCyan"];
+const ColorsBlue =    ["Navy", "MediumBlue", "SteelBlue", "LightSkyBlue", "CornflowerBlue", "PowderBlue"];
+var Colors = ColorsBlue;
+function chooseColor(index) 
+{
+    return Colors[index];
+};
+
 class Point
 {
     x=0;
@@ -30,7 +39,7 @@ class Point
 
 class Shape
 {
-    constructor(datas, color)
+    constructor(datas)
     {
         this.datas = []
         for (let data of datas)
@@ -41,7 +50,7 @@ class Shape
             this.datas.push(dataCopy);
         }
         this.dataIndex = 0;
-        this.color = color;
+        this.colorIndex = 0;
     }
 
     move (direction)
@@ -56,18 +65,24 @@ class Shape
         return this.datas[this.dataIndex];
     }
 
+    color()
+    {
+        return chooseColor(this.colorIndex);
+    }
+
     draw(ctx)
     {
         for (let point of this.data())
         {
-            drawItem(ctx, point, this.color);
+            drawItem(ctx, point, this.color());
         }
     }
 
     clone()
     {
-        let res = new Shape(this.datas, this.color);
+        let res = new Shape(this.datas);
         res.dataIndex = this.dataIndex;
+        res.colorIndex = this.colorIndex;
         return res;
     }
 
@@ -86,21 +101,21 @@ class Shape
     }
 }
 
-const Shapes = [new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(2, 0)],
-                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(0, 2)]], "green"),
-                new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), new Point(1, 1)]], "blue"),
+const Shapes = [new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), new Point(1, 1)]]),
+                new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(2, 0)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(0, 2)]]),
+                new Shape([[new Point(-1,0), new Point(0, 0), new Point(0, 1), new Point(1, 1)],        
+                           [new Point(1,0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]]),
+                new Shape([[new Point(-1,1), new Point(0, 0), new Point(0, 1), new Point(1, 0)],
+                           [new Point(0,0), new Point(0, 1), new Point(1, 1), new Point(1, 2)]]),
                 new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(1, 1)],
                            [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(-1, 1)],
                            [new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(-1, -1)],
-                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, -1)]], "red"),
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, -1)]]),
                 new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(-1, 1)],
                            [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(-1, -1)],
                            [new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(1, -1)],
-                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, 1)]], "teal"),
-                new Shape([[new Point(-1,0), new Point(0, 0), new Point(0, 1), new Point(1, 1)],
-                           [new Point(1,0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]], "yellow"),
-                new Shape([[new Point(-1,1), new Point(0, 0), new Point(0, 1), new Point(1, 0)],
-                           [new Point(0,0), new Point(0, 1), new Point(1, 1), new Point(1, 2)]], "orange")];
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, 1)]])];
 const BoardSize = new Point( 10, 20 );
 var Scale = 10;
 const EmptyColor = "white";
@@ -201,7 +216,7 @@ class Board
         {
             if(!this.isOnBoard(point))
                 continue;
-            this.setData(point, shape.color);
+            this.setData(point, shape.color());
         }
         for (let y = this.size.y-1; y >=0; --y)
         {
@@ -233,7 +248,9 @@ class Game
 
     createShare()
     {
-        this.shape = Shapes[Math.floor(Math.random() * Shapes.length)].clone();
+        let index = Math.floor(Math.random() * Shapes.length);
+        this.shape = Shapes[index].clone();
+        this.shape.colorIndex = index;
         this.shape.move(new Point(4, 0))
     }
 
@@ -311,6 +328,16 @@ function main()
             game.move(new Point(-1, 0));
         else if (e.code == "ArrowDown")
             game.move(new Point(0, 1));
+        else if (e.code == "KeyD")
+        {
+            Colors = ColorsDefault;
+            game.draw();
+        }
+        else if (e.code == "KeyB")
+        {
+            Colors = ColorsBlue;
+            game.draw();
+        }
         else if (e.code == "Space")
         {
             while(game.move(new Point(0, 1))) 
