@@ -29,38 +29,71 @@ class Point
 
 class Shape
 {
-    constructor(data, color)
+    constructor(datas, color)
     {
-        this.data = [];
-        for (let point of data)
-            this.data.push(point.clone());
+        this.datas = []
+        for (let data of datas)
+        {
+            let dataCopy = [];
+            for (let point of data)
+                dataCopy.push(point.clone());
+            this.datas.push(dataCopy);
+        }
+        this.dataIndex = 0;
         this.color = color;
     }
 
     move (direction)
     {
-        for (let point of this.data)
-            point.move(direction);
+        for (let data of this.datas)
+            for (let point of data)
+                point.move(direction);
+    }
+
+    data()
+    {
+        return this.datas[this.dataIndex];
     }
 
     draw(ctx)
     {
-        for (let point of this.data)
+        for (let point of this.data())
         {
             drawItem(ctx, point, this.color);
         }
     }
+
     clone()
     {
-        return new Shape(this.data, this.color);
+        let res = new Shape(this.datas, this.color);
+        res.dataIndex = this.dataIndex;
+        return res;
+    }
+
+    rotateLeft()
+    {
+        this.dataIndex++;
+        if (this.dataIndex >= this.datas.length)
+            this.dataIndex = 0;
+    }
+
+    rotateRight()
+    {
+        this.dataIndex--;
+        if (this.dataIndex < 0)
+            this.dataIndex = this.datas.length-1;
     }
 }
 
-const Line = [new Point(0,0), new Point(1, 0), new Point(2, 0), new Point(3, 0)]
-const Shapes = [new Shape([new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(2, 0)], "green"),
-                new Shape([new Point(0,0), new Point(1, 0), new Point(0, 1), new Point(1, 1)], "blue"),
-                new Shape([new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(1, 1)], "red"),
-                new Shape([new Point(-1,0), new Point(0, 0), new Point(0, 1), new Point(1, 1)], "yellow")];
+const Shapes = [new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(2, 0)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(0, 2)]], "green"),
+                new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), new Point(1, 1)]], "blue"),
+                new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(1, 1)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(-1, 1)],
+                           [new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(-1, -1)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, -1)]], "red"),
+                new Shape([[new Point(-1,0), new Point(0, 0), new Point(0, 1), new Point(1, 1)],
+                           [new Point(1,0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]], "yellow")];
 const BoardSize = new Point( 10, 20 );
 var Scale = 10;
 const EmptyColor = "white";
@@ -132,7 +165,7 @@ class Board
 
     hasIntersections(shape)
     {
-        for (let point of shape.data)
+        for (let point of shape.data())
         {
             if (!this.isOnBoard(point))
             {
@@ -149,7 +182,7 @@ class Board
 
     apply(shape)
     {
-        for (let point of shape.data)
+        for (let point of shape.data())
         {
             if(!this.isOnBoard(point))
                 continue;
@@ -165,6 +198,7 @@ class Game
         this.ctx = ctx;
         this.board = new Board(BoardSize);
         this.createShare();
+        this.ended = false;
     }
 
     draw()
@@ -179,24 +213,43 @@ class Game
         this.shape.move(new Point(4, 0))
     }
 
-    update()
+    rotate(direction)
     {
         let copy = this.shape.clone();
-        copy.move(new Point(0, 1));
-        let theEnd = false;
-        if (this.board.hasIntersections(copy))
-        {
-            this.board.apply(this.shape);
-            this.createShare(); // TODO: check before
-            if (this.board.hasIntersections(this.shape))
-                theEnd = true; // the end
-        }
+        if (direction)
+            copy.rotateLeft(); 
         else
-        {
-            this.shape = copy;        
-        }
+            copy.rotateRight(); 
+        if (this.board.hasIntersections(copy))
+            return;
+        this.shape = copy;
         this.draw();
-        return theEnd;
+    }
+
+    move(direction)
+    {
+        if (this.ended)
+            return false;
+        let copy = this.shape.clone();
+        copy.move(direction);
+        if (this.board.hasIntersections(copy))
+           return false;
+        this.shape = copy;
+        this.draw();
+        return true;
+    }
+
+    update()
+    {
+        if (this.ended)
+            return;
+        if (this.move(new Point(0, 1)))
+            return;
+        this.board.apply(this.shape);
+        this.createShare(); // TODO: check before
+        if (this.board.hasIntersections(this.shape))
+            this.ended = true; // the end
+        this.draw();
     }
 }
 function main()
@@ -210,11 +263,34 @@ function main()
     game.draw();
 
     let interval = window.setInterval(() => {
-            if (game.update())
+            game.update();
+            if(game.ended)
             {
                 window.clearInterval(interval);
                 document.querySelector('h1').textContent = 'The End';
             }
-        }, 10);
+        }, 1000);
+
+
+    document.addEventListener("keydown", (e) => {
+        if(game.ended)
+            return;
+        if (e.code == "ArrowUp")
+            game.rotate(true);
+        else if (e.code == "ArrowRight")
+            game.move(new Point(1, 0));
+        else if (e.code == "ArrowLeft")
+            game.move(new Point(-1, 0));
+        else if (e.code == "ArrowDown")
+            game.move(new Point(0, 1));
+        else if (e.code == "Space")
+        {
+            while(game.move(new Point(0, 1))) 
+            {
+            }
+        }
+        console.log(e.code);
+    });
+
 }
 
