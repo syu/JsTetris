@@ -3,8 +3,8 @@
 
 // ?import { Point } from './Point.js';
 
-const ColorsDefault = ["DarkOrange", "Firebrick", "Indigo", "Navy", "DarkGreen", "DarkCyan", "MediumAquamarine" ];
-const ColorsBlue =    ["Navy", "MediumBlue", "SteelBlue", "LightSkyBlue", "CornflowerBlue", "PowderBlue", "MediumAquamarine"];
+const ColorsDefault = ["#83BCD4", "#A4D1E0", "#B1DEE0", "#D6F7D2", "#BEE8B7", "#89AAC0", "#66CDAA" ];
+const ColorsBlue =    ["#66CCCC", "#66BBCC", "#66AACC", "#6699CC", "#6688CC", "#6677CC", "#6666CC"];
 var Colors = null;
 function chooseColor(index) 
 {
@@ -100,9 +100,7 @@ class Shape
     }
 }
 
-const Shapes = [new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), new Point(1, 1)]]),
-                new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(2, 0)],
-                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(0, 2)]]),
+const Shapes = [new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), new Point(1, 1)]]),                
                 new Shape([[new Point(-1,0), new Point(0, 0), new Point(0, 1), new Point(1, 1)],        
                            [new Point(1,0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]]),
                 new Shape([[new Point(-1,1), new Point(0, 0), new Point(0, 1), new Point(1, 0)],
@@ -118,29 +116,76 @@ const Shapes = [new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), n
                  new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(0, 1)],
                            [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(-1, 0)],
                            [new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(0, -1)],
-                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, 0)]])];
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(1, 0)]]),
+                 new Shape([[new Point(-1,0), new Point(0, 0), new Point(1, 0), new Point(2, 0)],
+                           [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(0, 2)]])];
 const BoardSize = new Point( 10, 20 );
 var Scale = 10;
 const EmptyColor = "white";
 
-
-function drawItem(ctx, start, color)
+class Rgb
 {
-    if (color == EmptyColor)
+    r=0;
+    g=0;
+    b=0;
+    static fromColor(color)
     {
-        ctx.clearRect(
-            start.x * Scale,
-            start.y * Scale,
-            Scale,
-            Scale);
-        return;
+        assert(color.length == 7);
+        
+        let result = new Rgb();
+        color = color.replace("#", "");
+
+        // Parse hex values for red, green, and blue
+        result.r = parseInt(hex.substring(0, 2), 16);
+        result.g = parseInt(hex.substring(2, 4), 16);
+        result.b = parseInt(hex.substring(4, 6), 16);
+        return result; 
     }
-    ctx.fillStyle = color;
-    ctx.fillRect(
+    toColor()
+    {
+    }
+};
+
+function clearItem(ctx, start)
+{
+    ctx.clearRect(
         start.x * Scale,
         start.y * Scale,
         Scale,
         Scale);
+}
+
+function drawItemSimplest(ctx, start, color)
+{
+    let margin = 1;
+    ctx.fillStyle = color;
+    ctx.fillRect(
+        start.x * Scale+margin,
+        start.y * Scale+margin,
+        Scale-2*margin,
+        Scale-2*margin);
+}
+
+function drawItemG(ctx, start, color)
+{
+    let margin = 1;
+    ctx.fillStyle = color;
+    ctx.fillRect(
+        start.x * Scale+margin,
+        start.y * Scale+margin,
+        Scale-2*margin,
+        Scale-2*margin);
+}
+
+function drawItemRound(ctx, start, color)
+{
+    const roundSize = 3;
+    ctx.fillStyle = color;
+    ctx.fillRect(
+        start.x * Scale+roundSize,
+        start.y * Scale+roundSize,
+        Scale-roundSize*2,
+        Scale-roundSize*2);
 
     //ctx.strokeStyle = "red"
     ctx.strokeRect(
@@ -148,7 +193,17 @@ function drawItem(ctx, start, color)
         start.y * Scale,
         Scale,
         Scale)    
+}
 
+function drawItem(ctx, start, color)
+{
+    if (color == EmptyColor)
+    {
+        clearItem(ctx, start);
+        return;
+    }
+    //drawItemSimplest(ctx, start, color);
+    drawItemG(ctx, start, color);
 }
 
 
