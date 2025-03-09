@@ -6,12 +6,70 @@
 const ColorsDefault = ["#83BCD4", "#A4D1E0", "#B1DEE0", "#D6F7D2", "#BEE8B7", "#89AAC0", "#66CDAA" ];
 const ColorsBlue =    ["#66CCCC", "#66BBCC", "#66AACC", "#6699CC", "#6688CC", "#6677CC", "#6666CC"];
 var Colors = null;
+
+class Rgb
+{
+    r=0;
+    g=0;
+    b=0;
+    static fromColor(color)
+    {
+        if (color.length != 7)
+            throw Error(color + " not a valid RGB color");
+        
+        let result = new Rgb();
+        color = color.replace("#", "");
+
+        result.r = parseInt(color.substring(0, 2), 16);
+        result.g = parseInt(color.substring(2, 4), 16);
+        result.b = parseInt(color.substring(4, 6), 16);
+        return result; 
+    }
+    toColor()
+    {
+        return "#"  + this.r.toString(16).padStart(2, "0") 
+                    + this.g.toString(16).padStart(2, "0") 
+                    + this.b.toString(16).padStart(2, "0");
+    }
+
+    static multiplyComponent(component, multiplier)
+    {
+        if (multiplier == 1)
+            return multiplier;
+        if (multiplier < 1)
+            return Math.floor(component*multiplier); 
+        else
+            return 255 - Math.floor((255 - component)/multiplier);
+    }
+    
+
+    multiply(multiplier)
+    {
+        let initial = this.toColor(); //+++
+
+        this.r = Rgb.multiplyComponent(this.r, multiplier);
+        this.g = Rgb.multiplyComponent(this.g, multiplier);
+        this.b = Rgb.multiplyComponent(this.b, multiplier);
+
+        console.log("multiply ", initial, " -> ", this.toColor()); //+++
+    }
+
+    static random()
+    {
+        let result = new Rgb();
+        result.r = Math.floor(Math.random() * 0xFF);
+        result.g = Math.floor(Math.random() * 0xFF);
+        result.b = Math.floor(Math.random() * 0xFF);
+        return result;
+    }
+};
+
 function chooseColor(index) 
 {
     if (Colors)
         return Colors[index];
-    let color = "#" + (Math.floor(Math.random() * 0x00FFFFFF) + 1).toString(16);
-    console.log("color:", color); //+++
+    let color = Rgb.random().toColor();
+    // console.log("color:", color); //+++
     return color
 };
 
@@ -123,29 +181,6 @@ const BoardSize = new Point( 10, 20 );
 var Scale = 10;
 const EmptyColor = "white";
 
-class Rgb
-{
-    r=0;
-    g=0;
-    b=0;
-    static fromColor(color)
-    {
-        assert(color.length == 7);
-        
-        let result = new Rgb();
-        color = color.replace("#", "");
-
-        // Parse hex values for red, green, and blue
-        result.r = parseInt(hex.substring(0, 2), 16);
-        result.g = parseInt(hex.substring(2, 4), 16);
-        result.b = parseInt(hex.substring(4, 6), 16);
-        return result; 
-    }
-    toColor()
-    {
-    }
-};
-
 function clearItem(ctx, start)
 {
     ctx.clearRect(
@@ -155,10 +190,8 @@ function clearItem(ctx, start)
         Scale);
 }
 
-function drawItemSimplest(ctx, start, color)
+function fillRect(ctx, start, color, margin)
 {
-    let margin = 1;
-    ctx.fillStyle = color;
     ctx.fillRect(
         start.x * Scale+margin,
         start.y * Scale+margin,
@@ -166,16 +199,38 @@ function drawItemSimplest(ctx, start, color)
         Scale-2*margin);
 }
 
-function drawItemG(ctx, start, color)
+function drawItemSimplest(ctx, start, color)
 {
     let margin = 1;
     ctx.fillStyle = color;
-    ctx.fillRect(
-        start.x * Scale+margin,
-        start.y * Scale+margin,
-        Scale-2*margin,
-        Scale-2*margin);
+    fillRect(ctx, start, color, margin);
 }
+
+function drawItemGrad(ctx, start, color, mult)
+{
+    let margin = 1;
+    ctx.fillStyle = color;
+    fillRect(ctx, start, color, margin)
+
+    for (; margin < 6; ++margin)
+    {
+        let rgb = Rgb.fromColor(color);        
+        rgb.multiply(1 + margin*mult);
+        ctx.fillStyle = rgb.toColor();
+        fillRect(ctx, start, color, margin);
+    }
+}
+
+function drawItemGradDark(ctx, start, color)
+{
+    drawItemGrad(ctx, start, color, -0.07);
+}
+
+function drawItemGradLight(ctx, start, color)
+{
+    drawItemGrad(ctx, start, color, 0.3);
+}
+
 
 function drawItemRound(ctx, start, color)
 {
@@ -195,6 +250,7 @@ function drawItemRound(ctx, start, color)
         Scale)    
 }
 
+var drawItemImpl = drawItemGradDark;
 function drawItem(ctx, start, color)
 {
     if (color == EmptyColor)
@@ -203,7 +259,7 @@ function drawItem(ctx, start, color)
         return;
     }
     //drawItemSimplest(ctx, start, color);
-    drawItemG(ctx, start, color);
+    drawItemImpl(ctx, start, color);
 }
 
 
@@ -386,6 +442,12 @@ function main()
             game.move(new Point(-1, 0));
         else if (e.code == "ArrowDown")
             game.move(new Point(0, 1));
+        else if (e.code == "Space")
+        {
+            while(game.move(new Point(0, 1))) 
+            {
+            }
+        }
         else if (e.code == "KeyD")
         {
             Colors = ColorsDefault;
@@ -401,11 +463,15 @@ function main()
             Colors = null;
             game.draw();
         }
-        else if (e.code == "Space")
+        else if (e.code == "KeyL")
         {
-            while(game.move(new Point(0, 1))) 
-            {
-            }
+            drawItemImpl = drawItemGradLight;
+            game.draw();
+        }
+        else if (e.code == "KeyK")
+        {
+            drawItemImpl = drawItemGradDark;
+            game.draw();
         }
         //console.log(e.code);
     });
