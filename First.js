@@ -1,7 +1,6 @@
 // TODO: increase speed
-// TODO: better paint
 
-// ?import { Point } from './Point.js';
+// TODO: ?import { Point } from './Point.js';
 
 const ColorsDefault = ["#83BCD4", "#A4D1E0", "#B1DEE0", "#D6F7D2", "#BEE8B7", "#89AAC0", "#66CDAA" ];
 const ColorsBlue =    ["#66CCCC", "#66BBCC", "#66AACC", "#6699CC", "#6688CC", "#6677CC", "#6666CC"];
@@ -45,13 +44,20 @@ class Rgb
 
     multiply(multiplier)
     {
-        let initial = this.toColor(); //+++
+        //let initial = this.toColor();
 
         this.r = Rgb.multiplyComponent(this.r, multiplier);
         this.g = Rgb.multiplyComponent(this.g, multiplier);
         this.b = Rgb.multiplyComponent(this.b, multiplier);
 
-        console.log("multiply ", initial, " -> ", this.toColor()); //+++
+        //console.log("multiply ", initial, " -> ", this.toColor());
+    }
+
+    static multiplyColor(color, multiplier)
+    {
+        let rgb = Rgb.fromColor(color);
+        rgb.multiply(multiplier);
+        return rgb.toColor();
     }
 
     static random()
@@ -69,7 +75,7 @@ function chooseColor(index)
     if (Colors)
         return Colors[index];
     let color = Rgb.random().toColor();
-    // console.log("color:", color); //+++
+    // console.log("color:", color);
     return color
 };
 
@@ -181,86 +187,132 @@ const BoardSize = new Point( 10, 20 );
 var Scale = 10;
 const EmptyColor = "white";
 
-function clearItem(ctx, start)
+class Item
 {
-    ctx.clearRect(
-        start.x * Scale,
-        start.y * Scale,
-        Scale,
-        Scale);
+     constructor(ctx, start)
+     {
+         this.ctx = ctx;
+         this.start = start;
+     }
+
+    clear()
+    {
+        this.ctx.clearRect(
+            this.start.x * Scale,
+            this.start.y * Scale,
+            Scale,
+            Scale);
+    }
+
+    fill(margin, color)
+    {
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(
+            this.start.x * Scale+margin,
+            this.start.y * Scale+margin,
+            Scale-2*margin,
+            Scale-2*margin);
+    }
+
+    roundShifted(margin, radius, color, fill, shift)
+    {
+        this.ctx.beginPath();
+        this.ctx.roundRect(
+            this.start.x * Scale+margin + shift.x,
+            this.start.y * Scale+margin + shift.y,
+            Scale-2*margin,
+            Scale-2*margin,
+            radius);
+        this.ctx.fillStyle = color;
+        this.ctx.strokeStyle = color;
+        if (fill)
+        {
+            this.ctx.fill();
+        }
+        else 
+        {
+            this.ctx.stroke();
+        }
+    }
+
+    round(margin, radius, color, fill)
+    {
+        this.roundShifted(margin, radius, color, fill, new Point(0,0));
+    }
+
+    blink(color)
+    {
+        this.roundShifted(10, 2, Rgb.multiplyColor(color, 2), true, new Point(-3, -3));
+    }
+
 }
 
-function fillRect(ctx, start, color, margin)
-{
-    ctx.fillRect(
-        start.x * Scale+margin,
-        start.y * Scale+margin,
-        Scale-2*margin,
-        Scale-2*margin);
-}
-
-function drawItemSimplest(ctx, start, color)
+function drawItemSimplest(item, color)
 {
     let margin = 1;
-    ctx.fillStyle = color;
-    fillRect(ctx, start, color, margin);
+    item.round(margin, 3, color, true)
+    item.blink(color);
 }
 
-function drawItemGrad(ctx, start, color, mult)
+function drawItemGrad(item, color, mult)
 {
     let margin = 1;
-    ctx.fillStyle = color;
-    fillRect(ctx, start, color, margin)
+    const roundSize = 3;
+    item.round(margin, roundSize, color, true);
 
     for (; margin < 6; ++margin)
     {
         let rgb = Rgb.fromColor(color);        
         rgb.multiply(1 + margin*mult);
-        ctx.fillStyle = rgb.toColor();
-        fillRect(ctx, start, color, margin);
+        item.round(margin, roundSize, rgb.toColor(), true);
     }
 }
 
-function drawItemGradDark(ctx, start, color)
+function drawItemGradDark(item, color)
 {
-    drawItemGrad(ctx, start, color, -0.07);
+    drawItemGrad(item, color, -0.07);
 }
 
-function drawItemGradLight(ctx, start, color)
+function drawItemGradLight(item, color)
 {
-    drawItemGrad(ctx, start, color, 0.3);
+    drawItemGrad(item, color, 0.3);
 }
 
-
-function drawItemRound(ctx, start, color)
+function drawItemRound(item, color)
 {
     const roundSize = 3;
-    ctx.fillStyle = color;
-    ctx.fillRect(
-        start.x * Scale+roundSize,
-        start.y * Scale+roundSize,
-        Scale-roundSize*2,
-        Scale-roundSize*2);
+    const margin = 2;
+  
+    item.round(margin, roundSize, color, false);
+    item.round(margin+2, roundSize, color, true);
 
-    //ctx.strokeStyle = "red"
-    ctx.strokeRect(
-        start.x * Scale,
-        start.y * Scale,
-        Scale,
-        Scale)    
+    item.blink(color);
 }
 
-var drawItemImpl = drawItemGradDark;
+var drawItemImpl = drawItemRound;
 function drawItem(ctx, start, color)
 {
+    let item = new Item(ctx, start);
+
     if (color == EmptyColor)
     {
-        clearItem(ctx, start);
+        item.clear();
         return;
     }
     //drawItemSimplest(ctx, start, color);
-    drawItemImpl(ctx, start, color);
+    drawItemImpl(item, color);
 }
+
+function drawItemShadow(item, color)
+{
+    let margin = 3;
+    //item.roundShifted(margin, 3, Rgb.multiplyColor(color, 0.5), true, new Point(1, 1));
+    item.roundShifted(margin, 3, "#888888", true, new Point(1, 1));
+    item.roundShifted(margin, 3, color, true, new Point(-1, -1));
+    item.blink(color);
+}
+
+
 
 
 class Board
@@ -284,12 +336,22 @@ class Board
     }
     draw(ctx)
     {
+        ctx.fillStyle = EmptyColor;
+        ctx.fillRect(
+            0,
+            0,
+            this.size.x*Scale,
+            this.size.y*Scale);
+
         for (let y = 0; y < this.size.y; ++y)
         {
             for (let x = 0; x < this.size.x; ++x)
-            {
-                let point = new Point(x, y);                
-                drawItem(ctx, point, this.getData(point))
+            {                
+                let point = new Point(x, y);                 
+                let color = this.getData(point);
+                if (color == EmptyColor)
+                    continue;
+                drawItem(ctx, point, color);
             }
         }
     }
@@ -422,11 +484,11 @@ function main()
             if(game.ended)
             {
                 window.clearInterval(interval);
-                document.querySelector('h1').textContent = 'Finished: ' + game.board.score.toString();
+                document.querySelector('h2').textContent = 'Finished: ' + game.board.score.toString();
             }
             else
             {
-                document.querySelector('h1').textContent = 'Score: ' + game.board.score.toString();
+                document.querySelector('h2').textContent = 'Score: ' + game.board.score.toString();
             }
         }, 1000);
 
@@ -434,6 +496,7 @@ function main()
     document.addEventListener("keydown", (e) => {
         if(game.ended)
             return;
+        let callDefault = false;
         if (e.code == "ArrowUp")
             game.rotate(true);
         else if (e.code == "ArrowRight")
@@ -463,17 +526,38 @@ function main()
             Colors = null;
             game.draw();
         }
-        else if (e.code == "KeyL")
+        else if (e.code == "Digit1")
         {
-            drawItemImpl = drawItemGradLight;
+            drawItemImpl = drawItemSimplest;
             game.draw();
         }
-        else if (e.code == "KeyK")
+        else if (e.code == "Digit2")
         {
             drawItemImpl = drawItemGradDark;
             game.draw();
         }
-        //console.log(e.code);
+        else if (e.code == "Digit3")
+        {
+            drawItemImpl = drawItemGradLight;
+            game.draw();
+        }
+        else if (e.code == "Digit4")
+        {
+            drawItemImpl = drawItemRound;
+            game.draw();
+        }        
+        else if (e.code == "Digit5")
+        {
+            drawItemImpl = drawItemShadow;
+            game.draw();
+        }        
+        else
+        {
+            callDefault = true;            
+        }
+        if (!callDefault)
+            e.preventDefault();
+        console.log(e.code);
     });
 
 }
