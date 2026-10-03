@@ -1,5 +1,3 @@
-// TODO: increase speed
-
 // TODO: ?import { Point } from './Point.js';
 
 const ColorsDefault = ["#83BCD4", "#A4D1E0", "#B1DEE0", "#D6F7D2", "#BEE8B7", "#89AAC0", "#66CDAA" ];
@@ -494,6 +492,21 @@ const KeyBindings = {
 var game = null;
 var ctx = null;
 var timer = null;
+var shownLevel = 1;
+
+const LinesPerLevel = 5;
+const MaxLevel = 10;
+
+function currentLevel()
+{
+    return Math.min(MaxLevel, 1 + Math.floor(game.board.score / LinesPerLevel));
+}
+
+// 1000ms per row at level 1, down to ~100ms at level 10
+function tickDelay(level)
+{
+    return Math.round(1000 * Math.pow(0.775, level - 1));
+}
 
 // Draws a row of blocks into a small canvas using the game's own block renderer
 function drawSwatch(canvas, colors, cell)
@@ -569,9 +582,31 @@ function runCommand(kind, name)
 
 function updateStatus()
 {
+    const level = currentLevel();
     document.getElementById("score").textContent = game.board.score;
     document.getElementById("finalScore").textContent = game.board.score;
+    document.getElementById("finalLevel").textContent = level;
     document.getElementById("overlay").hidden = !game.ended;
+
+    document.getElementById("level").textContent = level;
+    document.getElementById("rowsPerSecond").textContent = (1000 / tickDelay(level)).toFixed(1);
+    document.getElementById("nextLevel").textContent = level >= MaxLevel
+        ? "Top speed!"
+        : `${LinesPerLevel - game.board.score % LinesPerLevel} lines to speed ${level + 1}`;
+
+    const meter = document.getElementById("speedMeter");
+    if (meter.children.length != MaxLevel)
+        meter.innerHTML = "<i></i>".repeat(MaxLevel);
+    [...meter.children].forEach((cell, index) => cell.classList.toggle("on", index < level));
+
+    if (level > shownLevel)
+    {
+        const card = document.getElementById("speedCard");
+        card.classList.remove("level-up");
+        void card.offsetWidth; // restart the animation
+        card.classList.add("level-up");
+    }
+    shownLevel = level;
 }
 
 // Fits the board into the available space and keeps it sharp on HiDPI screens
@@ -604,17 +639,23 @@ function resizeBoard()
 function startGame()
 {
     if (timer)
-        window.clearInterval(timer);
+        window.clearTimeout(timer);
     game = new Game(ctx);
+    shownLevel = 1;
     game.draw();
     updateStatus();
+    scheduleTick();
+}
 
-    timer = window.setInterval(() => {
+// The delay is recalculated every row, so the game speeds up as lines are cleared
+function scheduleTick()
+{
+    timer = window.setTimeout(() => {
             game.update();
-            if (game.ended)
-                window.clearInterval(timer);
             updateStatus();
-        }, 1000);
+            if (!game.ended)
+                scheduleTick();
+        }, tickDelay(currentLevel()));
 }
 
 function main()
