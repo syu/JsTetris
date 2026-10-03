@@ -1,26 +1,254 @@
-<html>
-    <head>        
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>JsTetris</title>
+        <style>
+            :root {
+                --c1: #83BCD4; --c2: #A4D1E0; --c3: #B1DEE0; --c4: #D6F7D2;
+                --c5: #BEE8B7; --c6: #89AAC0; --c7: #66CDAA;
+                --ink: #2c4a5a;
+                --ink-soft: #5d7c8b;
+                --card: #ffffff;
+                --line: #d9ebf0;
+                --radius: 14px;
+            }
+            * { box-sizing: border-box; }
+            html, body { height: 100%; margin: 0; }
+            body {
+                font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                color: var(--ink);
+                background: linear-gradient(160deg, #eef7fa 0%, #e6f4f1 55%, #eef8ea 100%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 16px;
+                gap: 16px;
+            }
+
+            /* A tile mimics the game's "round" block style:
+               outer outline, white gap, filled core and a light glint. */
+            .tile {
+                --c: var(--c1);
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--c);
+                border: 2px solid var(--c);
+                box-shadow: inset 0 0 0 2px #fff;
+                border-radius: 6px;
+                font-weight: 700;
+                color: var(--ink);
+            }
+            .tile::before {
+                content: "";
+                position: absolute;
+                top: 5px; left: 5px;
+                width: 22%; max-width: 8px; aspect-ratio: 1;
+                border-radius: 2px;
+                background: rgba(255, 255, 255, .7);
+            }
+
+            /* Title */
+            .title { display: flex; gap: 6px; margin: 0; }
+            .title .tile { width: clamp(30px, 8vw, 44px); aspect-ratio: 1; font-size: clamp(16px, 4.4vw, 24px); }
+            .title .tile:nth-child(1) { --c: var(--c1); }
+            .title .tile:nth-child(2) { --c: var(--c5); }
+            .title .tile:nth-child(3) { --c: var(--c7); }
+            .title .tile:nth-child(4) { --c: var(--c2); }
+            .title .tile:nth-child(5) { --c: var(--c4); }
+            .title .tile:nth-child(6) { --c: var(--c6); }
+            .title .tile:nth-child(7) { --c: var(--c3); }
+
+            /* Layout */
+            .layout {
+                display: flex;
+                gap: 16px;
+                width: 100%;
+                max-width: 900px;
+                align-items: flex-start;
+                justify-content: center;
+            }
+            .board-column {
+                flex: 1 1 auto;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+            }
+            .side {
+                flex: 0 0 260px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .card {
+                background: var(--card);
+                border-radius: var(--radius);
+                box-shadow: 0 6px 20px rgba(60, 110, 130, .12);
+                padding: 12px;
+            }
+            .card h3 {
+                margin: 0 0 10px;
+                font-size: 12px;
+                letter-spacing: .12em;
+                text-transform: uppercase;
+                color: var(--ink-soft);
+            }
+
+            /* Board */
+            .board-card { position: relative; padding: 10px; }
+            #mainCanvas {
+                display: block;
+                background: #fff;
+                border: 2px solid var(--c3);
+                border-radius: 8px;
+            }
+            .overlay {
+                position: absolute;
+                inset: 10px;
+                border-radius: 8px;
+                background: rgba(255, 255, 255, .82);
+                backdrop-filter: blur(2px);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                text-align: center;
+            }
+            .overlay[hidden] { display: none; }
+            .overlay h2 { margin: 0; font-size: 28px; }
+            .overlay p { margin: 0; color: var(--ink-soft); }
+
+            /* Score */
+            .score { display: flex; align-items: center; justify-content: space-between; }
+            .score h3 { margin: 0; }
+            .score .tile { --c: var(--c7); min-width: 64px; height: 44px; padding: 0 12px; font-size: 22px; }
+
+            /* Buttons */
+            button { font: inherit; color: inherit; cursor: pointer; }
+            .btn {
+                --c: var(--c3);
+                padding: 8px 14px;
+                font-size: 14px;
+                transition: transform .08s, filter .15s;
+            }
+            .btn:hover { filter: brightness(1.04) saturate(1.15); }
+            .btn:active { transform: scale(.95); }
+            .btn:focus-visible { outline: 3px solid var(--c6); outline-offset: 2px; }
+            .btn-primary { --c: var(--c7); font-size: 16px; padding: 10px 22px; }
+
+            .options { display: grid; gap: 6px; }
+            .options + h3 { margin-top: 14px; }
+            .option {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+                padding: 6px 8px;
+                background: #f6fbfc;
+                border: 2px solid transparent;
+                border-radius: 10px;
+                text-align: left;
+                font-size: 14px;
+            }
+            .option:hover { background: #eaf5f8; }
+            .option.active { border-color: var(--c1); background: #eef8fb; }
+            .option:focus-visible { outline: 3px solid var(--c6); outline-offset: 1px; }
+            .option canvas { flex: none; }
+            .option .label { flex: 1; }
+            .option kbd { font-size: 11px; height: 22px; min-width: 22px; }
+
+            /* Key help */
+            .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
+            kbd.tile {
+                --c: var(--c2);
+                font-family: inherit;
+                font-size: 12px;
+                height: 28px;
+                min-width: 28px;
+                padding: 0 8px;
+            }
+            kbd.tile::before { top: 4px; left: 4px; width: 5px; }
+
+            /* Touch controls */
+            .touch { display: none; gap: 8px; }
+            .touch .btn { --c: var(--c2); width: 56px; height: 56px; padding: 0; font-size: 22px; }
+            .touch .btn[data-action="drop"] { --c: var(--c5); width: auto; padding: 0 16px; font-size: 15px; }
+
+            @media (pointer: coarse) {
+                .touch { display: flex; }
+                .keys-card { display: none; }
+            }
+            @media (max-width: 680px) {
+                body { padding: 12px; gap: 12px; }
+                .layout { flex-direction: column; align-items: center; }
+                .side { flex-basis: auto; width: 100%; max-width: 420px; }
+            }
+        </style>
         <script src="First.js"></script>
     </head>
     <body onload="main()">
-        <h2>Lets start</h2>
-        <canvas id="mainCanvas" width="250" height="500" style="border:1px solid grey"></canvas>
-        <!--object data="Background.jpg" name="main" width="400" height="600">Obj</object-->
-        <br>
-        <table>
-            <tr><td>ArrowUp    </td><td>rotate</td></tr>
-            <tr><td>ArrowRight </td><td>move right</td></tr>
-            <tr><td>ArrowLeft  </td><td>move left</td></tr>
-            <tr><td>ArrowDown  </td><td>move down</td></tr>
-            <tr><td>Space      </td><td>drop</td></tr>
-            <tr><td>D          </td><td>Default colors</td></tr>
-            <tr><td>B          </td><td>Blue colors</td></tr>
-            <tr><td>R          </td><td>Randon colors</td></tr>
-            <tr><td>1          </td><td>Simple style</td></tr>
-            <tr><td>2          </td><td>Dark style</td></tr>
-            <tr><td>3          </td><td>Light style</td></tr>
-            <tr><td>4          </td><td>Round style</td></tr>
-            <tr><td>5          </td><td>Alternative style</td></tr>
-        </table> 
+        <h1 class="title" aria-label="Tetris">
+            <span class="tile">T</span><span class="tile">E</span><span class="tile">T</span><span class="tile">R</span><span class="tile">I</span><span class="tile">S</span>
+        </h1>
+
+        <main class="layout">
+            <div class="board-column">
+                <div class="card board-card">
+                    <canvas id="mainCanvas" width="250" height="500"></canvas>
+                    <div class="overlay" id="overlay" hidden>
+                        <h2>Game over</h2>
+                        <p>Lines cleared: <strong id="finalScore">0</strong></p>
+                        <button class="tile btn btn-primary" data-command="restart">Play again</button>
+                    </div>
+                </div>
+                <div class="touch" id="touch">
+                    <button class="tile btn" data-action="left" aria-label="Move left">&#9664;</button>
+                    <button class="tile btn" data-action="rotate" aria-label="Rotate">&#10227;</button>
+                    <button class="tile btn" data-action="down" aria-label="Move down">&#9660;</button>
+                    <button class="tile btn" data-action="right" aria-label="Move right">&#9654;</button>
+                    <button class="tile btn" data-action="drop">Drop</button>
+                </div>
+            </div>
+
+            <aside class="side">
+                <div class="card score">
+                    <h3>Lines</h3>
+                    <span class="tile" id="score">0</span>
+                </div>
+
+                <div class="card">
+                    <h3>Colors</h3>
+                    <div class="options">
+                        <button class="option" data-palette="default"><canvas class="swatch"></canvas><span class="label">Default</span><kbd class="tile">D</kbd></button>
+                        <button class="option" data-palette="blue"><canvas class="swatch"></canvas><span class="label">Blue</span><kbd class="tile">B</kbd></button>
+                        <button class="option" data-palette="random"><canvas class="swatch"></canvas><span class="label">Random</span><kbd class="tile">R</kbd></button>
+                    </div>
+                    <h3>Block style</h3>
+                    <div class="options">
+                        <button class="option" data-style="simple"><canvas class="swatch"></canvas><span class="label">Simple</span><kbd class="tile">1</kbd></button>
+                        <button class="option" data-style="dark"><canvas class="swatch"></canvas><span class="label">Dark</span><kbd class="tile">2</kbd></button>
+                        <button class="option" data-style="light"><canvas class="swatch"></canvas><span class="label">Light</span><kbd class="tile">3</kbd></button>
+                        <button class="option" data-style="round"><canvas class="swatch"></canvas><span class="label">Round</span><kbd class="tile">4</kbd></button>
+                        <button class="option" data-style="shadow"><canvas class="swatch"></canvas><span class="label">Alternative</span><kbd class="tile">5</kbd></button>
+                    </div>
+                </div>
+
+                <div class="card keys-card">
+                    <h3>Controls</h3>
+                    <div class="keys">
+                        <kbd class="tile">&uarr;</kbd><span>Rotate</span>
+                        <kbd class="tile">&larr; &rarr;</kbd><span>Move left / right</span>
+                        <kbd class="tile">&darr;</kbd><span>Move down</span>
+                        <kbd class="tile">Space</kbd><span>Drop</span>
+                    </div>
+                </div>
+            </aside>
+        </main>
     </body>
 </html>

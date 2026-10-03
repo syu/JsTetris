@@ -185,6 +185,7 @@ const Shapes = [new Shape([[new Point(0,0),  new Point(1, 0), new Point(0, 1), n
                            [new Point(0,-1), new Point(0, 0), new Point(0, 1), new Point(0, 2)]])];
 const BoardSize = new Point( 10, 20 );
 var Scale = 10;
+const BaseScale = 25; // block decoration sizes are designed for 25px cells
 const EmptyColor = "white";
 
 class Item
@@ -206,23 +207,26 @@ class Item
 
     fill(margin, color)
     {
+        const k = Scale / BaseScale;
         this.ctx.fillStyle = color;
         this.ctx.fillRect(
-            this.start.x * Scale+margin,
-            this.start.y * Scale+margin,
-            Scale-2*margin,
-            Scale-2*margin);
+            this.start.x * Scale+margin*k,
+            this.start.y * Scale+margin*k,
+            Scale-2*margin*k,
+            Scale-2*margin*k);
     }
 
     roundShifted(margin, radius, color, fill, shift)
     {
+        const k = Scale / BaseScale;
+        this.ctx.lineWidth = k;
         this.ctx.beginPath();
         this.ctx.roundRect(
-            this.start.x * Scale+margin + shift.x,
-            this.start.y * Scale+margin + shift.y,
-            Scale-2*margin,
-            Scale-2*margin,
-            radius);
+            this.start.x * Scale + (margin + shift.x)*k,
+            this.start.y * Scale + (margin + shift.y)*k,
+            Scale-2*margin*k,
+            Scale-2*margin*k,
+            radius*k);
         this.ctx.fillStyle = color;
         this.ctx.strokeStyle = color;
         if (fill)
@@ -469,96 +473,178 @@ class Game
         this.draw();
     }
 }
-function main()
+const Palettes = { default: ColorsDefault, blue: ColorsBlue, random: null };
+const Styles = { simple: drawItemSimplest, dark: drawItemGradDark, light: drawItemGradLight,
+                 round: drawItemRound, shadow: drawItemShadow };
+const Actions = {
+    rotate: () => game.rotate(true),
+    left:   () => game.move(new Point(-1, 0)),
+    right:  () => game.move(new Point(1, 0)),
+    down:   () => game.move(new Point(0, 1)),
+    drop:   () => { while (game.move(new Point(0, 1))) {} },
+};
+const KeyBindings = {
+    ArrowUp: ["action", "rotate"], ArrowLeft: ["action", "left"], ArrowRight: ["action", "right"],
+    ArrowDown: ["action", "down"], Space: ["action", "drop"],
+    KeyD: ["palette", "default"], KeyB: ["palette", "blue"], KeyR: ["palette", "random"],
+    Digit1: ["style", "simple"], Digit2: ["style", "dark"], Digit3: ["style", "light"],
+    Digit4: ["style", "round"], Digit5: ["style", "shadow"],
+};
+
+var game = null;
+var ctx = null;
+var timer = null;
+
+// Draws a row of blocks into a small canvas using the game's own block renderer
+function drawSwatch(canvas, colors, cell)
 {
-    const myCanvas = document.getElementById("mainCanvas");
-    const ctx = myCanvas.getContext("2d");
-    Scale = myCanvas.width / 10;
-    console.log("Scale:", Scale);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = colors.length * cell * dpr;
+    canvas.height = cell * dpr;
+    canvas.style.width = colors.length * cell + "px";
+    canvas.style.height = cell + "px";
+    const swatchCtx = canvas.getContext("2d");
+    swatchCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    game = new Game(ctx);
-    game.draw();
-
-    let interval = window.setInterval(() => {
-            game.update();
-            if(game.ended)
-            {
-                window.clearInterval(interval);
-                document.querySelector('h2').textContent = 'Finished: ' + game.board.score.toString();
-            }
-            else
-            {
-                document.querySelector('h2').textContent = 'Score: ' + game.board.score.toString();
-            }
-        }, 1000);
-
-
-    document.addEventListener("keydown", (e) => {
-        if(game.ended)
-            return;
-        let callDefault = false;
-        if (e.code == "ArrowUp")
-            game.rotate(true);
-        else if (e.code == "ArrowRight")
-            game.move(new Point(1, 0));
-        else if (e.code == "ArrowLeft")
-            game.move(new Point(-1, 0));
-        else if (e.code == "ArrowDown")
-            game.move(new Point(0, 1));
-        else if (e.code == "Space")
-        {
-            while(game.move(new Point(0, 1))) 
-            {
-            }
-        }
-        else if (e.code == "KeyD")
-        {
-            Colors = ColorsDefault;
-            game.draw();
-        }
-        else if (e.code == "KeyB")
-        {
-            Colors = ColorsBlue;
-            game.draw();
-        }
-        else if (e.code == "KeyR")
-        {
-            Colors = null;
-            game.draw();
-        }
-        else if (e.code == "Digit1")
-        {
-            drawItemImpl = drawItemSimplest;
-            game.draw();
-        }
-        else if (e.code == "Digit2")
-        {
-            drawItemImpl = drawItemGradDark;
-            game.draw();
-        }
-        else if (e.code == "Digit3")
-        {
-            drawItemImpl = drawItemGradLight;
-            game.draw();
-        }
-        else if (e.code == "Digit4")
-        {
-            drawItemImpl = drawItemRound;
-            game.draw();
-        }        
-        else if (e.code == "Digit5")
-        {
-            drawItemImpl = drawItemShadow;
-            game.draw();
-        }        
-        else
-        {
-            callDefault = true;            
-        }
-        if (!callDefault)
-            e.preventDefault();
-        console.log(e.code);
-    });
-
+    const savedScale = Scale;
+    Scale = cell;
+    colors.forEach((color, x) => drawItemImpl(new Item(swatchCtx, new Point(x, 0)), color));
+    Scale = savedScale;
 }
 
+function drawSwatches()
+{
+    for (let button of document.querySelectorAll("[data-palette]"))
+    {
+        let colors = Palettes[button.dataset.palette];
+        colors = colors ? [colors[0], colors[3], colors[6]] : [0, 1, 2].map(() => Rgb.random().toColor());
+        drawSwatch(button.querySelector("canvas"), colors, 22);
+    }
+    const sample = (Colors || ColorsDefault)[0];
+    for (let button of document.querySelectorAll("[data-style]"))
+    {
+        const savedImpl = drawItemImpl;
+        drawItemImpl = Styles[button.dataset.style];
+        drawSwatch(button.querySelector("canvas"), [sample], 22);
+        drawItemImpl = savedImpl;
+    }
+}
+
+function markActive(group, name)
+{
+    for (let button of document.querySelectorAll(`[data-${group}]`))
+        button.classList.toggle("active", button.dataset[group] == name);
+}
+
+function setPalette(name)
+{
+    Colors = Palettes[name];
+    markActive("palette", name);
+    drawSwatches();
+    game.draw();
+}
+
+function setStyle(name)
+{
+    drawItemImpl = Styles[name];
+    markActive("style", name);
+    drawSwatches();
+    game.draw();
+}
+
+function runCommand(kind, name)
+{
+    if (kind == "action")
+    {
+        if (!game.ended)
+            Actions[name]();
+    }
+    else if (kind == "palette")
+        setPalette(name);
+    else if (kind == "style")
+        setStyle(name);
+    else if (kind == "command" && name == "restart")
+        startGame();
+}
+
+function updateStatus()
+{
+    document.getElementById("score").textContent = game.board.score;
+    document.getElementById("finalScore").textContent = game.board.score;
+    document.getElementById("overlay").hidden = !game.ended;
+}
+
+// Fits the board into the available space and keeps it sharp on HiDPI screens
+function resizeBoard()
+{
+    const canvas = document.getElementById("mainCanvas");
+    const column = canvas.closest(".board-column");
+    const card = canvas.closest(".board-card");
+    const touch = document.getElementById("touch");
+
+    const chrome = card.offsetHeight - canvas.clientHeight; // card padding + canvas border
+    const touchHeight = touch.offsetHeight ? touch.offsetHeight + 12 : 0;
+    const top = card.getBoundingClientRect().top + window.scrollY;
+    const availableHeight = window.innerHeight - top - chrome - touchHeight - 16;
+    const availableWidth = column.clientWidth - chrome;
+
+    Scale = Math.max(12, Math.floor(Math.min(availableWidth / BoardSize.x, availableHeight / BoardSize.y)));
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = BoardSize.x * Scale * dpr;
+    canvas.height = BoardSize.y * Scale * dpr;
+    canvas.style.width = BoardSize.x * Scale + "px";
+    canvas.style.height = BoardSize.y * Scale + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (game)
+        game.draw();
+}
+
+function startGame()
+{
+    if (timer)
+        window.clearInterval(timer);
+    game = new Game(ctx);
+    game.draw();
+    updateStatus();
+
+    timer = window.setInterval(() => {
+            game.update();
+            if (game.ended)
+                window.clearInterval(timer);
+            updateStatus();
+        }, 1000);
+}
+
+function main()
+{
+    ctx = document.getElementById("mainCanvas").getContext("2d");
+    resizeBoard();
+    window.addEventListener("resize", resizeBoard);
+
+    startGame();
+    setPalette("random");
+    setStyle("round");
+
+    document.addEventListener("click", (e) => {
+        const button = e.target.closest("button");
+        if (!button)
+            return;
+        for (let kind of ["action", "palette", "style", "command"])
+        {
+            if (button.dataset[kind])
+                runCommand(kind, button.dataset[kind]);
+        }
+        if (!button.dataset.command)
+            button.blur(); // keep Space/arrows for the game, not the focused button
+    });
+
+    document.addEventListener("keydown", (e) => {
+        const binding = KeyBindings[e.code];
+        if (!binding)
+            return;
+        e.preventDefault();
+        runCommand(...binding);
+    });
+}
